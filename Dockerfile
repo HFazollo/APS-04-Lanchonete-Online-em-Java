@@ -1,11 +1,11 @@
-FROM maven:3.8.4-openjdk-8 AS build
+FROM maven:3.8.4-openjdk-11 AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 COPY web ./web
 RUN mvn clean package
 
-FROM tomcat:8.5-jre8
+FROM tomcat:9.0-jre11
 
 # Instala o unzip para inspeção do .war
 RUN apt-get update && apt-get install -y unzip
