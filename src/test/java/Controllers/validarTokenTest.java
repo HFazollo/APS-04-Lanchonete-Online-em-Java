@@ -1,9 +1,11 @@
 package Controllers;
 
 import Helpers.ValidadorCookie;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedConstruction;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
@@ -11,45 +13,80 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 public class validarTokenTest {
 
-    private validarToken servlet;
+    @Mock
     private HttpServletRequest request;
+
+    @Mock
     private HttpServletResponse response;
-    private StringWriter responseWriter;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        servlet = new validarToken();
-        request = mock(HttpServletRequest.class);
-        response = mock(HttpServletResponse.class);
-
-        // Captura da saída do response
-        responseWriter = new StringWriter();
-        when(response.getWriter()).thenReturn(new PrintWriter(responseWriter));
-    }
 
     @Test
-    void testProcessRequest_TokenValido() throws Exception {
-        // Simula cookie válido
-        Cookie[] cookies = { new Cookie("token", "abc123") };
+    public void testCookieValido() throws Exception {
+        Cookie[] cookies = {new Cookie("token", "12345")};
         when(request.getCookies()).thenReturn(cookies);
 
-        // Simula ValidadorCookie retornando true
-        ValidadorCookie mockValidator = mock(ValidadorCookie.class);
-        when(mockValidator.validar(cookies)).thenReturn(true);
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter writer = new PrintWriter(stringWriter);
+        when(response.getWriter()).thenReturn(writer);
 
-        // Como o ValidadorCookie é instanciado dentro do método,
-        // em teste simples não dá pra injetar sem refatorar,
-        // então aqui consideramos que o validador real funciona.
+        try (MockedConstruction<ValidadorCookie> mockedValidador =
+                     org.mockito.Mockito.mockConstruction(ValidadorCookie.class, (mock, context) -> {
+                         when(mock.validar(cookies)).thenReturn(true);
+                     })) {
 
-        servlet.processRequest(request, response);
+            new validarToken().doGet(request, response);
+            writer.flush();
 
-        String saida = responseWriter.toString().trim();
-        assertTrue(saida.contains("valido"), "Deveria retornar 'valido'");
+            assertEquals("valido", stringWriter.toString().trim());
+        }
     }
 
+
+    @Test
+    public void testCookieInvalido() throws Exception {
+        Cookie[] cookies = {new Cookie("token", "abc")};
+        when(request.getCookies()).thenReturn(cookies);
+
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter writer = new PrintWriter(stringWriter);
+        when(response.getWriter()).thenReturn(writer);
+
+        try (MockedConstruction<ValidadorCookie> mockedValidador =
+                     org.mockito.Mockito.mockConstruction(ValidadorCookie.class, (mock, context) -> {
+                         when(mock.validar(cookies)).thenReturn(false);
+                     })) {
+
+            new validarToken().doPost(request, response);
+            writer.flush();
+
+            assertEquals("erro", stringWriter.toString().trim());
+        }
+    }
+
+
+    @Test
+    public void testValidadorLancaExcecao() throws Exception {
+        Cookie[] cookies = {new Cookie("token", "123")};
+        when(request.getCookies()).thenReturn(cookies);
+
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter writer = new PrintWriter(stringWriter);
+        when(response.getWriter()).thenReturn(writer);
+
+        try (MockedConstruction<ValidadorCookie> mockedValidador =
+                     org.mockito.Mockito.mockConstruction(ValidadorCookie.class, (mock, context) -> {
+                         when(mock.validar(cookies)).thenThrow(new RuntimeException("Erro interno"));
+                     })) {
+
+            new validarToken().doPost(request, response);
+            writer.flush();
+
+            assertEquals("erro", stringWriter.toString().trim());
+        }
+    }
 }
