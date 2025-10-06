@@ -27,9 +27,10 @@ import java.io.StringReader;
 import java.io.StringWriter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-public class ComprarTest {
+public class comprarTest {
 
     @InjectMocks
     private comprar servlet;
@@ -72,7 +73,7 @@ public class ComprarTest {
         when(validadorCookie.validar(cookies)).thenReturn(true);
 
         Cliente mockCliente = new Cliente();
-        mockCliente.setId(1);
+        mockCliente.setId_cliente(1);
         when(daoCliente.pesquisaPorID("1")).thenReturn(mockCliente);
 
         Lanche mockLanche = new Lanche();
@@ -86,8 +87,8 @@ public class ComprarTest {
         when(daoBebida.pesquisaPorNome("Coca-Cola")).thenReturn(mockBebida);
 
         Pedido mockPedido = new Pedido();
-        mockPedido.setId(1);
-        when(daoPedido.salvar(any(Pedido.class))).thenReturn(true); 
+        mockPedido.setId_pedido(1);
+        doNothing().when(daoPedido).salvar(any(Pedido.class));
         when(daoPedido.pesquisaPorData(any(Pedido.class))).thenReturn(mockPedido);
 
         StringWriter stringWriter = new StringWriter();
