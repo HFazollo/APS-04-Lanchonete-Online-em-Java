@@ -12,46 +12,61 @@ import org.json.JSONObject;
 
 public class alterarStatusLanchonete extends HttpServlet {
 
+    private DaoStatusLanchonete dao;
+
+    public alterarStatusLanchonete() {
+        this.dao = new DaoStatusLanchonete();
+    }
+
+    public alterarStatusLanchonete(DaoStatusLanchonete dao) {
+        this.dao = dao;
+    }
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
-        // Lê o corpo da requisição
+
         BufferedReader br = request.getReader();
         String json = br.readLine();
-        
-        if (json != null) {
+
+        if (json != null && !json.isEmpty()) {
             JSONObject dados = new JSONObject(json);
-            String novoStatus = dados.getString("status");
-            
-            if (novoStatus != null && (novoStatus.equals("ABERTO") || novoStatus.equals("FECHADO"))) {
-                DaoStatusLanchonete dao = new DaoStatusLanchonete();
-                dao.alterarStatus(novoStatus);
-                
-                JSONObject jsonResponse = new JSONObject();
-                jsonResponse.put("status", novoStatus);
-                
-                try (PrintWriter out = response.getWriter()) {
-                    out.print(jsonResponse.toString());
-                    out.flush();
-                }
-            } else {
-                // Definir o status inicial como 'ABERTO' se o status for inválido
-                DaoStatusLanchonete dao = new DaoStatusLanchonete();
-                dao.alterarStatus("ABERTO");
-                
-                JSONObject jsonResponse = new JSONObject();
-                jsonResponse.put("status", "ABERTO");
-                
-                try (PrintWriter out = response.getWriter()) {
-                    out.print(jsonResponse.toString());
-                    out.flush();
-                }
+            String novoStatus = dados.optString("status", "").trim();
+
+            if (novoStatus.isEmpty()) {
+                novoStatus = "ABERTO";
             }
+
+            if (novoStatus.equalsIgnoreCase("aberto")) {
+                novoStatus = "ABERTO";
+            } else if (novoStatus.equalsIgnoreCase("fechado")) {
+                novoStatus = "FECHADO";
+            } else if (!novoStatus.equals("ABERTO") && !novoStatus.equals("FECHADO")) {
+                novoStatus = "ABERTO";
+            }
+
+            if (this.dao != null) {
+                this.dao.alterarStatus(novoStatus);
+            }
+
+            JSONObject jsonResponse = new JSONObject();
+            jsonResponse.put("status", novoStatus);
+
+            try (PrintWriter out = response.getWriter()) {
+                if (out != null) {
+                    out.print(jsonResponse.toString());
+                    out.flush();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
         } else {
             try (PrintWriter out = response.getWriter()) {
                 out.println("Status inválido");
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -67,4 +82,4 @@ public class alterarStatusLanchonete extends HttpServlet {
             throws ServletException, IOException {
         processRequest(request, response);
     }
-} 
+}
