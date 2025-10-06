@@ -23,6 +23,12 @@ Para a manipulação de Arquivos JSON dentro do Código Java, e de um Banco de D
 ![alt text](https://i.ibb.co/2321674/8a74fb26-1db0-49df-b2d7-2479d0567a4e.jpg)
 ![alt text](https://i.ibb.co/2YSbvGZ/8d3386e3-d13b-4a42-b389-151fbadb1d77.jpg)
 
+## Documentos do projeto de testes
+
+ - [Plano de Testes](https://docs.google.com/document/d/1XWvWwrRCo6Ply82KZvAF13D4FqyEqIyGCbBWFl6aPIM/)
+ - [Casos de Teste](https://docs.google.com/document/d/1AwJhnbDcTxEoWV7egR-cwVOCCEBfMAYJyHhVUvUSh9A/)
+ - [Testlink](http://vania.ic.uff.br/testlink/index.php?caller=login&viewer=)
+
 ## Como rodar o projeto
 
 ### Pré-requisitos
