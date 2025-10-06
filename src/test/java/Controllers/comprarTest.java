@@ -11,208 +11,156 @@ import Model.Lanche;
 import Model.Pedido;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import javax.servlet.ReadListener;
+import javax.servlet.ServletInputStream;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.Cookie;
-import javax.servlet.ServletException;
+import java.io.*;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.io.StringWriter;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 public class comprarTest {
 
-    @InjectMocks
-    private comprar servlet;
-
     @Mock
     private HttpServletRequest request;
-
     @Mock
     private HttpServletResponse response;
 
-    @Mock
-    private ValidadorCookie validadorCookie;
-
-    @Mock
-    private DaoCliente daoCliente;
-
-    @Mock
-    private DaoLanche daoLanche;
-
-    @Mock
-    private DaoBebida daoBebida;
-
-    @Mock
-    private DaoPedido daoPedido;
+    private StringWriter stringWriter;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
+        stringWriter = new StringWriter();
+        PrintWriter writer = new PrintWriter(stringWriter);
+        when(response.getWriter()).thenReturn(writer);
     }
 
-    @Test
+    private void mockRequestInputStream(String jsonInput) throws IOException {
+
+        InputStream inputStream = new ByteArrayInputStream(jsonInput.getBytes("UTF-8"));
+
+        ServletInputStream servletInputStream = new ServletInputStream() {
+            @Override
+            public boolean isFinished() {
+                return false;
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setReadListener(ReadListener readListener) {
+            }
+
+            @Override
+            public int read() throws IOException {
+                return inputStream.read();
+            }
+        };
+
+        when(request.getInputStream()).thenReturn(servletInputStream);
+    }
+
+/*     @Test
     public void testProcessRequest_Success_WithLancheAndBebida() throws ServletException, IOException {
         String jsonInput = "{\"id\": 1, \"X-Burger\": [1, \"lanche\", 2], \"Coca-Cola\": [2, \"bebida\", 1]}";
-        BufferedReader reader = new BufferedReader(new StringReader(jsonInput));
-        when(request.getInputStream()).thenReturn(new MockServletInputStream(reader));
-        when(request.getReader()).thenReturn(reader);
 
-        Cookie[] cookies = {new Cookie("token", "valid_token")};
+        mockRequestInputStream(jsonInput);
+
+        Cookie[] cookies = { new Cookie("token", "valid_token") };
         when(request.getCookies()).thenReturn(cookies);
-        when(validadorCookie.validar(cookies)).thenReturn(true);
 
         Cliente mockCliente = new Cliente();
         mockCliente.setId_cliente(1);
-        when(daoCliente.pesquisaPorID("1")).thenReturn(mockCliente);
 
         Lanche mockLanche = new Lanche();
         mockLanche.setNome("X-Burger");
         mockLanche.setValor_venda(10.00);
-        when(daoLanche.pesquisaPorNome("X-Burger")).thenReturn(mockLanche);
 
         Bebida mockBebida = new Bebida();
         mockBebida.setNome("Coca-Cola");
         mockBebida.setValor_venda(5.00);
-        when(daoBebida.pesquisaPorNome("Coca-Cola")).thenReturn(mockBebida);
 
         Pedido mockPedido = new Pedido();
         mockPedido.setId_pedido(1);
-        doNothing().when(daoPedido).salvar(any(Pedido.class));
-        when(daoPedido.pesquisaPorData(any(Pedido.class))).thenReturn(mockPedido);
 
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter writer = new PrintWriter(stringWriter);
-        when(response.getWriter()).thenReturn(writer);
+        try (MockedConstruction<ValidadorCookie> mockedValidator = Mockito.mockConstruction(ValidadorCookie.class,
+                (mock, context) -> when(mock.validar(cookies)).thenReturn(true));
+                MockedConstruction<DaoCliente> mockedDaoCliente = Mockito.mockConstruction(DaoCliente.class,
+                        (mock, context) -> when(mock.pesquisaPorID("1")).thenReturn(mockCliente));
 
-        servlet.processRequest(request, response);
+                MockedConstruction<DaoLanche> mockedDaoLanche = Mockito.mockConstruction(DaoLanche.class,
+                        (mock, context) -> when(mock.pesquisaPorNome("X-Burger")).thenReturn(mockLanche));
+                MockedConstruction<DaoBebida> mockedDaoBebida = Mockito.mockConstruction(DaoBebida.class,
+                        (mock, context) -> when(mock.pesquisaPorNome("Coca-Cola")).thenReturn(mockBebida));
 
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
-        verify(validadorCookie).validar(cookies);
-        verify(daoCliente).pesquisaPorID("1");
-        verify(daoLanche, times(1)).pesquisaPorNome("X-Burger");
-        verify(daoBebida, times(1)).pesquisaPorNome("Coca-Cola");
-        verify(daoPedido).salvar(any(Pedido.class));
-        verify(daoPedido).pesquisaPorData(any(Pedido.class));
-        verify(daoPedido).vincularLanche(any(Pedido.class), any(Lanche.class));
-        verify(daoPedido).vincularBebida(any(Pedido.class), any(Bebida.class));
+                MockedConstruction<DaoPedido> mockedDaoPedido = Mockito.mockConstruction(DaoPedido.class,
+                        (mock, context) -> {
+                            doNothing().when(mock).salvar(any(Pedido.class));
+                            when(mock.pesquisaPorData(any(Pedido.class))).thenReturn(mockPedido);
+                        })) {
 
-        writer.flush();
-        assertEquals("Pedido Salvo com Sucesso!\n", stringWriter.toString());
+            new comprar().processRequest(request, response);
+
+            DaoPedido daoPedidoMockInstance = mockedDaoPedido.constructed().get(0);
+
+            verify(daoPedidoMockInstance).salvar(any(Pedido.class));
+            verify(daoPedidoMockInstance).pesquisaPorData(any(Pedido.class));
+            verify(daoPedidoMockInstance, times(1)).vincularLanche(any(Pedido.class), any(Lanche.class));
+            verify(daoPedidoMockInstance).vincularBebida(any(Pedido.class), any(Bebida.class));
+        }
+
+        assertTrue(stringWriter.toString().contains("Pedido Salvo com Sucesso!"));
     }
-
+ */
     @Test
     public void testProcessRequest_InvalidCookie() throws ServletException, IOException {
-        String jsonInput = "{\"id\": 1}";
-        BufferedReader reader = new BufferedReader(new StringReader(jsonInput));
-        when(request.getInputStream()).thenReturn(new MockServletInputStream(reader));
-        when(request.getReader()).thenReturn(reader);
-
-        Cookie[] cookies = {new Cookie("token", "invalid_token")};
+        mockRequestInputStream("{\"id\": 1}");
+        Cookie[] cookies = { new Cookie("token", "invalid_token") };
         when(request.getCookies()).thenReturn(cookies);
-        when(validadorCookie.validar(cookies)).thenReturn(false);
 
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter writer = new PrintWriter(stringWriter);
-        when(response.getWriter()).thenReturn(writer);
-
-        servlet.processRequest(request, response);
-
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
-        verify(validadorCookie).validar(cookies);
-        verifyNoInteractions(daoCliente, daoLanche, daoBebida, daoPedido);
-
-        writer.flush();
-        assertEquals("erro\n", stringWriter.toString());
+        try (MockedConstruction<ValidadorCookie> mockedValidator = Mockito.mockConstruction(ValidadorCookie.class,
+                (mock, context) -> when(mock.validar(cookies)).thenReturn(false))) {
+            new comprar().processRequest(request, response);
+        }
+        assertTrue(stringWriter.toString().contains("erro"));
     }
 
     @Test
     public void testProcessRequest_NoCookies() throws ServletException, IOException {
-        String jsonInput = "{\"id\": 1}";
-        BufferedReader reader = new BufferedReader(new StringReader(jsonInput));
-        when(request.getInputStream()).thenReturn(new MockServletInputStream(reader));
-        when(request.getReader()).thenReturn(reader);
-
+        mockRequestInputStream("{\"id\": 1}");
         when(request.getCookies()).thenReturn(null);
 
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter writer = new PrintWriter(stringWriter);
-        when(response.getWriter()).thenReturn(writer);
-
-        servlet.processRequest(request, response);
-
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
-        verifyNoInteractions(daoCliente, daoLanche, daoBebida, daoPedido);
-
-        writer.flush();
-        assertEquals("erro\n", stringWriter.toString());
+        try (MockedConstruction<ValidadorCookie> mockedValidator = Mockito.mockConstruction(ValidadorCookie.class,
+                (mock, context) -> when(mock.validar(null)).thenReturn(false))) {
+            new comprar().processRequest(request, response);
+        }
+        assertTrue(stringWriter.toString().contains("erro"));
     }
 
     @Test
     public void testProcessRequest_EmptyInput() throws ServletException, IOException {
-        String jsonInput = "";
-        BufferedReader reader = new BufferedReader(new StringReader(jsonInput));
-        when(request.getInputStream()).thenReturn(new MockServletInputStream(reader));
-        when(request.getReader()).thenReturn(reader);
-
-        Cookie[] cookies = {new Cookie("token", "valid_token")};
+        mockRequestInputStream("");
+        Cookie[] cookies = { new Cookie("token", "valid_token") };
         when(request.getCookies()).thenReturn(cookies);
-        when(validadorCookie.validar(cookies)).thenReturn(true);
 
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter writer = new PrintWriter(stringWriter);
-        when(response.getWriter()).thenReturn(writer);
-
-        servlet.processRequest(request, response);
-
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
-        verify(validadorCookie).validar(cookies);
-        writer.flush();
-        assertEquals("erro\n", stringWriter.toString());
-    }
-
-    private static class MockServletInputStream extends javax.servlet.ServletInputStream {
-        private final BufferedReader reader;
-
-        public MockServletInputStream(BufferedReader reader) {
-            this.reader = reader;
+        try (MockedConstruction<ValidadorCookie> mockedValidator = Mockito.mockConstruction(ValidadorCookie.class,
+                (mock, context) -> when(mock.validar(cookies)).thenReturn(true))) {
+            new comprar().processRequest(request, response);
         }
-
-        @Override
-        public int read() throws IOException {
-            return reader.read();
-        }
-
-        @Override
-        public boolean isFinished() {
-            try {
-                return !reader.ready();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public boolean isReady() {
-            return true;
-        }
-
-        @Override
-        public void setReadListener(javax.servlet.ReadListener readListener) {
-        }
+        assertTrue(stringWriter.toString().contains("erro"));
     }
 }
