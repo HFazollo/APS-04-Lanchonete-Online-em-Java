@@ -25,13 +25,35 @@ import org.json.JSONObject;
 
 public class comprar extends HttpServlet {
 
+    private final ValidadorCookie validadorCookie;
+    private final DaoCliente daoCliente;
+    private final DaoLanche daoLanche;
+    private final DaoBebida daoBebida;
+    private final DaoPedido daoPedido;
+
+    public comprar() {
+        this.validadorCookie = new ValidadorCookie();
+        this.daoCliente = new DaoCliente();
+        this.daoLanche = new DaoLanche();
+        this.daoBebida = new DaoBebida();
+        this.daoPedido = new DaoPedido();
+    }
+
+    public comprar(ValidadorCookie validadorCookie, DaoCliente daoCliente, DaoLanche daoLanche, DaoBebida daoBebida,
+            DaoPedido daoPedido) {
+        this.validadorCookie = validadorCookie;
+        this.daoCliente = daoCliente;
+        this.daoLanche = daoLanche;
+        this.daoBebida = daoBebida;
+        this.daoPedido = daoPedido;
+    }
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        // 1. Leitura do corpo da requisição (JSON)
         StringBuilder sb = new StringBuilder();
         BufferedReader br = request.getReader();
         String line;
@@ -40,19 +62,15 @@ public class comprar extends HttpServlet {
         }
         String json = sb.toString();
 
-        // 2. Validação do Cookie
         boolean cookieValido = false;
         try {
             Cookie[] cookies = request.getCookies();
             if (cookies != null) {
-                ValidadorCookie validar = new ValidadorCookie();
-                cookieValido = validar.validar(cookies);
+                cookieValido = this.validadorCookie.validar(cookies);
             }
         } catch (Exception e) {
-            // O erro será tratado pela verificação do cookieValido
         }
 
-        // 3. Verifica se o JSON está vazio ou se o cookie é inválido
         if (json == null || json.isEmpty() || !cookieValido) {
             try (PrintWriter out = response.getWriter()) {
                 out.println("erro");
@@ -60,11 +78,9 @@ public class comprar extends HttpServlet {
             return;
         }
 
-        // 4. Processamento do Pedido
         try {
             JSONObject dados = new JSONObject(json);
-            DaoCliente clienteDao = new DaoCliente();
-            Cliente cliente = clienteDao.pesquisaPorID(String.valueOf(dados.getInt("id")));
+            Cliente cliente = this.daoCliente.pesquisaPorID(String.valueOf(dados.getInt("id")));
 
             Iterator<String> keys = dados.keys();
             Double valor_total = 0.00;
@@ -73,40 +89,38 @@ public class comprar extends HttpServlet {
 
             while (keys.hasNext()) {
                 String nome = keys.next();
-                if (nome.equals("id")) continue; // Pula a chave 'id'
+                if (nome.equals("id"))
+                    continue;
 
                 if (dados.getJSONArray(nome).get(1).equals("lanche")) {
-                    DaoLanche lancheDao = new DaoLanche();
-                    Lanche lanche = lancheDao.pesquisaPorNome(nome);
+                    Lanche lanche = this.daoLanche.pesquisaPorNome(nome);
                     int quantidade = dados.getJSONArray(nome).getInt(2);
                     lanche.setQuantidade(quantidade);
-                    valor_total += lanche.getValor_venda() * quantidade; // CORREÇÃO: Multiplica valor pela quantidade
+                    valor_total += lanche.getValor_venda() * quantidade;
                     lanches.add(lanche);
                 } else if (dados.getJSONArray(nome).get(1).equals("bebida")) {
-                    DaoBebida bebidaDao = new DaoBebida();
-                    Bebida bebida = bebidaDao.pesquisaPorNome(nome);
+                    Bebida bebida = this.daoBebida.pesquisaPorNome(nome);
                     int quantidade = dados.getJSONArray(nome).getInt(2);
                     bebida.setQuantidade(quantidade);
-                    valor_total += bebida.getValor_venda() * quantidade; // CORREÇÃO: Multiplica valor pela quantidade
+                    valor_total += bebida.getValor_venda() * quantidade;
                     bebidas.add(bebida);
                 }
             }
 
-            DaoPedido pedidoDao = new DaoPedido();
             Pedido pedido = new Pedido();
             pedido.setData_pedido(Instant.now().toString());
             pedido.setCliente(cliente);
             pedido.setValor_total(valor_total);
-            
-            pedidoDao.salvar(pedido);
-            Pedido pedidoSalvo = pedidoDao.pesquisaPorData(pedido);
+
+            this.daoPedido.salvar(pedido);
+            Pedido pedidoSalvo = this.daoPedido.pesquisaPorData(pedido);
             pedidoSalvo.setCliente(cliente);
 
             for (Lanche lanche : lanches) {
-                pedidoDao.vincularLanche(pedidoSalvo, lanche);
+                this.daoPedido.vincularLanche(pedidoSalvo, lanche);
             }
             for (Bebida bebida : bebidas) {
-                pedidoDao.vincularBebida(pedidoSalvo, bebida);
+                this.daoPedido.vincularBebida(pedidoSalvo, bebida);
             }
 
             try (PrintWriter out = response.getWriter()) {
@@ -114,7 +128,7 @@ public class comprar extends HttpServlet {
             }
 
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST); // Informa que a requisição foi mal formatada
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             try (PrintWriter out = response.getWriter()) {
                 out.println("erro");
             }
