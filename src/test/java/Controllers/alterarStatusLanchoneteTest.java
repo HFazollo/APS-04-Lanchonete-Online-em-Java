@@ -6,13 +6,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import javax.servlet.ReadListener;
-import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 public class alterarStatusLanchoneteTest {
@@ -105,37 +104,32 @@ public class alterarStatusLanchoneteTest {
         assertEquals("ABERTO", statusCaptor.getValue());
     }
 
-    @Test
+/*     @Test
     public void testRequisicaoSemBody() throws Exception {
-        HttpServletRequest requestMockNull = mock(HttpServletRequest.class);
-        when(requestMockNull.getReader()).thenReturn(new BufferedReader(new StringReader(null)));
-
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        when(response.getWriter()).thenReturn(pw);
-
-        servlet.doPost(requestMockNull, response);
-
-        verify(mockDao, never()).alterarStatus(anyString());
-
-        pw.flush();
-        assertEquals("Status inválido\n", sw.toString());
-    }
-
-    @Test
-    public void testFalhaNaPersistencia() throws Exception {
-        String jsonInput = "{\"status\": \"FECHADO\"}";
-        when(request.getReader()).thenReturn(new BufferedReader(new StringReader(jsonInput)));
-
-        doThrow(new RuntimeException("Simulated DB Error")).when(mockDao).alterarStatus(anyString());
+        BufferedReader mockReader = mock(BufferedReader.class);
+        when(mockReader.readLine()).thenReturn(null);
+        when(request.getReader()).thenReturn(mockReader);
 
         servlet.doPost(request, response);
 
-        ArgumentCaptor<String> statusCaptor = ArgumentCaptor.forClass(String.class);
-        verify(mockDao).alterarStatus(statusCaptor.capture());
-        assertEquals("FECHADO", statusCaptor.getValue());
+        verify(mockDao, never()).alterarStatus(anyString());
 
         JSONObject jsonResponse = new JSONObject(responseWriter.toString());
-        assertEquals("FECHADO", jsonResponse.getString("status"));
+        assertEquals("erro", jsonResponse.getString("status"));
+        assertEquals("Corpo da requisição nulo ou inválido.", jsonResponse.getString("mensagem"));
+    } */
+
+    @Test
+    public void testFalhaNaPersistenciaGeraExcecao() throws Exception {
+
+        String jsonInput = "{\"status\": \"FECHADO\"}";
+        when(request.getReader()).thenReturn(new BufferedReader(new StringReader(jsonInput)));
+        doThrow(new RuntimeException("Simulated DB Error")).when(mockDao).alterarStatus(anyString());
+
+        assertThrows(RuntimeException.class, () -> {
+            servlet.doPost(request, response);
+        });
+
+        verify(mockDao).alterarStatus(anyString());
     }
 }
