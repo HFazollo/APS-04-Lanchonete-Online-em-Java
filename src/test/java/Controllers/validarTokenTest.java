@@ -89,4 +89,23 @@ public class validarTokenTest {
             assertEquals("erro", stringWriter.toString().trim());
         }
     }
+
+    @Test
+    public void testSemCookies() throws Exception {
+        when(request.getCookies()).thenReturn(null);
+
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter writer = new PrintWriter(stringWriter);
+        when(response.getWriter()).thenReturn(writer);
+
+        // Mock para o construtor do ValidadorCookie (não deve ser chamado)
+        try (MockedConstruction<ValidadorCookie> ignored =
+                     org.mockito.Mockito.mockConstruction(ValidadorCookie.class)) {
+
+            new validarToken().doGet(request, response);
+            writer.flush();
+
+            assertEquals("erro", stringWriter.toString().trim());
+        }
+    }
 }
